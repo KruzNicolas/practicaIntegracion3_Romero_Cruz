@@ -13,7 +13,7 @@ const schema = new mongoose.Schema(
     password: { type: String, required: true },
     age: { type: Number, index: true },
     gender: { type: String, required: false, index: true },
-    role: { type: String, enum: ["ADMIN", "USER"], default: "USER" },
+    role: { type: String, enum: ["ADMIN", "USER", "PREMIUM"], default: "USER" },
     cartId: { type: mongoose.Schema.Types.ObjectId, ref: "carts" },
   },
   {

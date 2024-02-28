@@ -16,6 +16,7 @@ import viewsRouter from "./routes/views.routes.js";
 import mocksRouter from "./mocks/productsMocks.js";
 import MongoSingleton from "./services/mongo.singleton.js";
 import addLogger from "./services/winston.logger.js";
+import userRouter from "./routes/users.routes.js";
 
 import config from "./config.js";
 
@@ -62,6 +63,7 @@ try {
   app.use("/api/products", productsRouter);
   app.use("/api/carts", cartsRouter);
   app.use("/api/sessions", sessionRouter);
+  app.use("/api/users", userRouter);
   app.use("/mock", mocksRouter);
 
   // Logger Endpoint test

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { ProductService } from "../services/products.mongo.dao.js";
 import CustomError from "../services/error.custom.class.js";
 import errorDictionary from "../services/error.dictionary.js";
+import userModel from "../models/users.models.js";
 import { handlePolicies } from "../utils.js";
 
 const router = Router();
@@ -79,27 +80,31 @@ router.get("/:pid", async (req, res, next) => {
   res.status(200).send({ status: "OK", data: product });
 });
 
-router.post("/", async (req, res, next) => {
-  if (
-    !req.body.title ||
-    !req.body.description ||
-    !req.body.code ||
-    !req.body.price ||
-    !req.body.stock ||
-    !req.body.category ||
-    !req.body.status
-  ) {
-    req.logger.error(`POST /api/products/`);
-    return next(new CustomError(errorDictionary.FEW_PARAMETERS));
+router.post(
+  "/",
+  handlePolicies(["ADMIN", "PREMIUM"]),
+  async (req, res, next) => {
+    if (
+      !req.body.title ||
+      !req.body.description ||
+      !req.body.code ||
+      !req.body.price ||
+      !req.body.stock ||
+      !req.body.category ||
+      !req.body.status
+    ) {
+      req.logger.error(`POST /api/products/`);
+      return next(new CustomError(errorDictionary.FEW_PARAMETERS));
+    }
+    const newProduct = req.body;
+    const productAdded = await controller.addProduct(newProduct);
+    req.logger.http(`POST /api/products`);
+    res.status(200).send({
+      status: "OK",
+      data: `Product added with ID: ${productAdded._id}`,
+    });
   }
-  const newProduct = req.body;
-  const productAdded = await controller.addProduct(newProduct);
-  req.logger.http(`POST /api/products`);
-  res.status(200).send({
-    status: "OK",
-    data: `Product added with ID: ${productAdded._id}`,
-  });
-});
+);
 
 router.put("/:pid", async (req, res, next) => {
   const pId = req.params.pid;
@@ -117,19 +122,41 @@ router.put("/:pid", async (req, res, next) => {
     .send({ status: "OK", data: `product with ID: ${pId} has updated` });
 });
 
-router.delete("/:pid", async (req, res) => {
-  try {
-    const pId = req.params.pid;
-
-    await controller.deleteProduct(pId);
-    req.logger.http(`DELETE /api/products/${pId}`);
-    res
-      .status(200)
-      .send({ status: "OK", data: `Product with ID: ${pId} has deleted` });
-  } catch (err) {
-    req.logger.error(`DELETE /api/products/${pId}`);
-    res.status(400).send({ status: "ERR", data: err.message });
+router.delete(
+  "/:pid",
+  handlePolicies(["ADMIN", "PREMIUM"]),
+  async (req, res) => {
+    try {
+      if (req.session.user.role === "ADMIN") {
+        const pId = req.params.pid;
+        await controller.deleteProduct(pId);
+        req.logger.http(`DELETE /api/products/${pId}`);
+        res
+          .status(200)
+          .send({ status: "OK", data: `Product with ID: ${pId} has deleted` });
+      } else if (req.session.user.role === "PREMIUM") {
+        const pId = req.params.pid;
+        const userName = req.session.user.username;
+        const user = userModel.findOne({ username: userName });
+        if (typeof user === "object") {
+          await controller.deleteProduct(pId);
+          req.logger.http(`DELETE /api/products/${pId}`);
+          res.status(200).send({
+            status: "OK",
+            data: `Product with ID: ${pId} has deleted`,
+          });
+        } else {
+          res.status(403).send({
+            status: "ERROR",
+            data: "You cannot delete products created by another user",
+          });
+        }
+      }
+    } catch (err) {
+      req.logger.error(`DELETE /api/products/${pId}`);
+      res.status(400).send({ status: "ERR", data: err.message });
+    }
   }
-});
+);
 
 export default router;

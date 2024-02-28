@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import cartsModel from "../models/carts.models.js";
 import ticketModel from "../models/ticket.models.js";
 import productsModel from "../models/products.models.js";
+import userModel from "../models/users.models.js";
 
 import { handlePolicies } from "../utils.js";
 
@@ -45,8 +46,18 @@ router.post("/:cid/products/:pid", async (req, res) => {
   try {
     const cartId = req.params.cid;
     const productId = req.params.pid;
+    const username = req.session.user.username;
 
-    const productIdObj = new mongoose.Types.ObjectId(productId);
+    const product = productsModel.findOne({ _id: productId });
+
+    const user = userModel.findOne({ username: username });
+
+    if (product.owner === user.username)
+      return res
+        .status(400)
+        .send({ status: "ERR", data: "You cannot add a own product" });
+
+    const productIdObj = mongoose.Types.ObjectId(productId);
     const cart = await cartsModel.findOne({ _id: cartId });
 
     if (
@@ -106,7 +117,7 @@ router.put("/:cid/products/:pid", async (req, res) => {
     const productId = req.params.pid;
     const quantity = req.body.quantity || 1;
 
-    const productIdObj = new mongoose.Types.ObjectId(productId);
+    const productIdObj = mongoose.Types.ObjectId(productId);
 
     await cartsModel.updateOne(
       { _id: cartId, "products.productId": productIdObj },
