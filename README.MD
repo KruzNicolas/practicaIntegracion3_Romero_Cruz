@@ -3,7 +3,7 @@
 
 ## Things to do
 
-- ❌ Create a restore password system
+- ✅ Create a restore password system
 - ✅ Create a Premium rol in user schema
 - ✅ Modify a product schema
 - ✅ Modify a delete and update permissions of products

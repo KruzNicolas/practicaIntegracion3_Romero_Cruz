@@ -8,7 +8,7 @@ const schema = new mongoose.Schema(
   {
     mail: { type: String, required: true },
     token: { type: String, required: true },
-    expirationDate: { type: String, required: true },
+    expirationDate: { type: Date, required: true },
   },
   {
     versionKey: false,

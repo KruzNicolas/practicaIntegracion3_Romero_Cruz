@@ -1,4 +1,5 @@
 import { Router } from "express";
+import bcrypt from "bcrypt";
 import passport from "passport";
 import nodemailer from "nodemailer";
 import moment from "moment";
@@ -91,19 +92,42 @@ router.post("/restorepasswordmail", async (req, res) => {
   }
 });
 
-router.post(
-  "/restorepassword",
-  passport.authenticate("restorepassword", {
-    failureRedirect: "/api/sessions/failrestore",
-  }),
-  async (req, res) => {
-    try {
-      res.status(200).send({ status: "OK", data: `Password changed` });
-    } catch (err) {
-      res.status(400).send({ status: "ERROR", data: err.message });
+router.post("/restorepassword", async (req, res) => {
+  try {
+    const { newPassword, token } = req.body;
+
+    const tokenIdDb = await restorePasswordModel
+      .findOne({ token: token })
+      .lean();
+
+    if (!tokenIdDb) {
+      return res.status(400).send({ status: "ERROR", data: "Invalid token" });
+    } else if (moment().isAfter(tokenIdDb.expirationDate)) {
+      await restorePasswordModel.deleteOne({ token: token });
+      return res
+        .status(400)
+        .send({ status: "ERROR", data: "Token has expired" });
     }
+
+    const hashedPassword = createHash(newPassword);
+    const user = await userModel.findOne({ email: tokenIdDb.mail }).lean();
+
+    if (bcrypt.compareSync(newPassword, user.password))
+      return res
+        .status(400)
+        .send({ status: "ERROR", data: "Don't use the same password" });
+
+    await userModel.updateOne(
+      { email: tokenIdDb.mail },
+      { password: hashedPassword }
+    );
+    await restorePasswordModel.deleteOne({ token: token });
+
+    res.status(200).send({ status: "OK", data: `Password changed` });
+  } catch (err) {
+    res.status(400).send({ status: "ERROR", data: err.message });
   }
-);
+});
 
 router.get("/failrestore", async (req, res) => {
   res.status(400).send({ status: "ERROR", data: "Username are not correct" });
