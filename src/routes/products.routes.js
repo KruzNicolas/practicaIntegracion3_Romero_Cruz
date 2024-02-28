@@ -72,7 +72,7 @@ router.get("/all", async (req, res) => {
 router.get("/:pid", async (req, res, next) => {
   const pId = req.params.pid;
   const product = await controller.getProduct(pId);
-  if (typeof product === "string") {
+  if (!product) {
     req.logger.error(`GET /api/products/${pId}`);
     return next(new CustomError(errorDictionary.ID_NOT_FOUND));
   }
@@ -138,7 +138,7 @@ router.delete(
         const pId = req.params.pid;
         const userName = req.session.user.username;
         const user = userModel.findOne({ username: userName });
-        if (typeof user === "object") {
+        if (!user) {
           await controller.deleteProduct(pId);
           req.logger.http(`DELETE /api/products/${pId}`);
           res.status(200).send({

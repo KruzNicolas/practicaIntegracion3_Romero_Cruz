@@ -1,7 +1,11 @@
 import { Router } from "express";
 import passport from "passport";
+import nodemailer from "nodemailer";
+import moment from "moment";
+import { v4 as uuidv4 } from "uuid";
 
 import userModel from "../models/users.models.js";
+import restorePasswordModel from "../models/restorePassword.models.js";
 import {
   createHash,
   isValidPassword,
@@ -9,10 +13,20 @@ import {
   handlePolicies,
 } from "../utils.js";
 import initPassport from "../config/passport.config.js";
+import config from "../config.js";
 
 initPassport();
 
 const router = Router();
+
+const mailerService = nodemailer.createTransport({
+  service: "gmail",
+  port: 587,
+  auth: {
+    user: config.GMAIL_APP_EMAIL,
+    pass: config.GMAIL_APP_PASSWORD,
+  },
+});
 
 // Register
 router.post(
@@ -39,6 +53,44 @@ router.get("/failregister", async (req, res) => {
 });
 
 // Restore password
+
+router.post("/restorepasswordmail", async (req, res) => {
+  try {
+    const { mail } = req.body;
+
+    const user = await userModel.findOne({ email: mail }).lean();
+
+    if (!user)
+      return res.status(400).send({ status: "ERROR", data: "Not valid mail" });
+
+    const token = uuidv4();
+    const expirationDate = moment().add(1, "h").toDate();
+    const restorePasswordLink = `http://localhost:8080/restorepassword?t=${token}`;
+
+    const subject = "Videogame store password restore confirmation";
+    const html = `<h1>Videogame store password restore confirmation</h1>
+    <a href="${restorePasswordLink}" target="_blank">Restore password</a>
+    <p> This link is valid for 1 hour </p>`;
+
+    await mailerService.sendMail({
+      from: config.GMAIL_APP_EMAIL,
+      to: mail,
+      subject: subject,
+      html: html,
+    });
+
+    await restorePasswordModel.create({
+      mail: mail,
+      token: token,
+      expirationDate: expirationDate,
+    });
+
+    res.status(200).send({ status: "OK", data: `Password changed` });
+  } catch (err) {
+    res.status(400).send({ status: "ERROR", data: err.message });
+  }
+});
+
 router.post(
   "/restorepassword",
   passport.authenticate("restorepassword", {
